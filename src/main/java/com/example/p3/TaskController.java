@@ -50,14 +50,13 @@ public class TaskController {
         String logFilePath  = logsDir + "/task-" + task.getId() + ".log";
 
         // 1) pull the "user command" from the request-backed Task
-        //    e.g. "python3 -c \"print(42 * 2)\""
         String userCmd = task.getCommand();
 
         // 2) build the docker invocation as an arg list
         List<String> cmd = new ArrayList<>();
         cmd.add("docker");
         cmd.add("run");
-        cmd.add("--rm");
+        cmd.add("--rm"); // we have commented this as we need memory stats later on
         cmd.add("--memory=" + task.getMemMb() + "M");
         cmd.add("--name");
         cmd.add(containerName);
@@ -95,6 +94,51 @@ public class TaskController {
                         : TaskStatus.FAILED
                 );
             }
+
+
+//            // --- fetch memory stats before removal ---
+//            Process stats = new ProcessBuilder(
+//                    "docker", "stats", containerName,
+//                    "--no-stream",
+//                    "--format", "{{.MemUsage}}"
+//            ).start();
+//            String out = new String(stats.getInputStream().readAllBytes(), UTF_8).trim();
+//            // e.g. "12.34MiB / 64MiB"
+//            // after you’ve read `out` from docker stats…
+//            String usedPart = out.split("/")[0].trim();   // e.g. "12.34MiB" or "0B"
+//
+//            double usedBytes;
+//            if (usedPart.endsWith("GiB")) {
+//                usedBytes = Double.parseDouble(
+//                        usedPart.substring(0, usedPart.length() - 3)
+//                ) * 1024 * 1024 * 1024;
+//            }
+//            else if (usedPart.endsWith("MiB")) {
+//                usedBytes = Double.parseDouble(
+//                        usedPart.substring(0, usedPart.length() - 3)
+//                ) * 1024 * 1024;
+//            }
+//            else if (usedPart.endsWith("KiB")) {
+//                usedBytes = Double.parseDouble(
+//                        usedPart.substring(0, usedPart.length() - 3)
+//                ) * 1024;
+//            }
+//            else if (usedPart.endsWith("B")) {
+//                usedBytes = Double.parseDouble(
+//                        usedPart.substring(0, usedPart.length() - 1)
+//                );
+//            }
+//            else {
+//                throw new IllegalStateException("Unknown mem unit: " + usedPart);
+//            }
+//
+//            // convert to MB (ceiling to catch partial MB)
+//            int usedMb = (int)Math.ceil(usedBytes / 1024 / 1024);
+//            task.setMemoryUsedMb(usedMb);
+//
+//            // finally, remove the container
+//            new ProcessBuilder("docker", "rm", containerName).start()
+//                    .waitFor();
 
             task.setLogPath(logFilePath);
             repo.save(task);

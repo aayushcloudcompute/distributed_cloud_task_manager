@@ -12,6 +12,8 @@ public class Task {
     private int memMb;
     private int timeoutSec;
 
+    private int memoryUsedMb; // peak memory used by this task
+
     @Enumerated(EnumType.STRING)
     private TaskStatus status;
 
@@ -38,20 +40,20 @@ public class Task {
         this.command = command;
     }
 
-    public int getMemMb() {
-        return memMb;
-    }
-
-    public void setMemMb(int memMb) {
-        this.memMb = memMb;
-    }
-
     public int getTimeoutSec() {
         return timeoutSec;
     }
 
     public void setTimeoutSec(int timeoutSec) {
         this.timeoutSec = timeoutSec;
+    }
+
+    public int getMemMb() {
+        return memMb;
+    }
+
+    public void setMemMb(int memMb) {
+        this.memMb = memMb;
     }
 
     public TaskStatus getStatus() {
@@ -102,4 +104,11 @@ public class Task {
         this.ended = ended;
     }
 
+    public int getMemoryUsedMb() {
+        return memoryUsedMb;
+    }
+
+    public void setMemoryUsedMb(int memoryUsedMb) {
+        this.memoryUsedMb = memoryUsedMb;
+    }
 }
