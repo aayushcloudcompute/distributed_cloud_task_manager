@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,43 +43,60 @@ public class TaskController {
     }
 
     private void runTask(Task task) {
+        String logsDir = new File("logs").getAbsolutePath();
+        new File(logsDir).mkdirs();
+
+        String containerName = "task-" + task.getId();
+        String logFilePath  = logsDir + "/task-" + task.getId() + ".log";
+
+        // 1) pull the "user command" from the request-backed Task
+        //    e.g. "python3 -c \"print(42 * 2)\""
+        String userCmd = task.getCommand();
+
+        // 2) build the docker invocation as an arg list
+        List<String> cmd = new ArrayList<>();
+        cmd.add("docker");
+        cmd.add("run");
+        cmd.add("--rm");
+        cmd.add("--memory=" + task.getMemMb() + "M");
+        cmd.add("--name");
+        cmd.add(containerName);
+        cmd.add("-v");
+        cmd.add(logsDir + ":/logs");
+        cmd.add("p3/task-base:1");
+        // we’ll shell-interpret the user command and redirect inside the container:
+//        cmd.add("bash");
+//        cmd.add("-c");
+        cmd.add(userCmd + " > /logs/task-" + task.getId() + ".log 2>&1");
+
         try {
-            task.setStatus(TaskStatus.RUNNING);
-            task.setStarted(Instant.now());
-            repo.save(task);
+            // 3) spin it up
+            ProcessBuilder pb = new ProcessBuilder(cmd)
+                    // (optional) if you want to capture docker’s own stderr/stdout:
+                    .redirectErrorStream(true)
+                    // (not needed if you rely wholly on in-container redirection)
+                    // .redirectOutput(new File(logFilePath))
+                    ;
 
-            String logDir = "logs";
-            new File(logDir).mkdirs();
-
-            String logFilePath = logDir + "/task-" + task.getId() + ".log";
-            String containerName = "task-" + task.getId();
-
-            // Full Docker command with memory, name, mount, logging
-            String dockerCommand = String.format(
-                    "docker run --rm --memory=%dM --name %s -v %s:/logs p3/task-base:1 \"bash -c 'python3 -c \\\"print(42 * 2)\\\" > /logs/task-%d.log 2>&1'\"",
-                    task.getMemMb(),
-                    containerName,
-                    new File("logs").getAbsolutePath(),
-                    task.getId()
-            );
-
-
-            Process process = new ProcessBuilder("bash", "-c", dockerCommand).start();
+            Process process = pb.start();
 
             boolean finished = process.waitFor(task.getTimeoutSec(), TimeUnit.SECONDS);
             task.setEnded(Instant.now());
 
             if (!finished) {
-                // Timeout → force kill the Docker container
+                // timed out → kill the container
                 new ProcessBuilder("docker", "kill", containerName).start();
                 task.setStatus(TaskStatus.FAILED_TIMEOUT);
             } else {
                 int exitCode = process.exitValue();
                 task.setExitCode(exitCode);
-                task.setStatus(exitCode == 0 ? TaskStatus.SUCCEEDED : TaskStatus.FAILED);
+                task.setStatus(exitCode == 0
+                        ? TaskStatus.SUCCEEDED
+                        : TaskStatus.FAILED
+                );
             }
 
-            task.setLogPath(new File(logFilePath).getAbsolutePath());
+            task.setLogPath(logFilePath);
             repo.save(task);
 
         } catch (Exception e) {
