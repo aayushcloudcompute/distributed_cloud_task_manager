@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 public class TaskController {
@@ -45,25 +46,38 @@ public class TaskController {
             task.setStarted(Instant.now());
             repo.save(task);
 
-            File logFile = new File("logs/task-" + task.getId() + ".log");
-            logFile.getParentFile().mkdirs();
-            Process p = new ProcessBuilder("bash", "-c", task.getCommand())
-                    .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
-                    .redirectErrorStream(true)
-                    .start();
+            String logDir = "logs";
+            new File(logDir).mkdirs();
 
-            boolean finished = p.waitFor(task.getTimeoutSec(), java.util.concurrent.TimeUnit.SECONDS);
+            String logFilePath = logDir + "/task-" + task.getId() + ".log";
+            String containerName = "task-" + task.getId();
+
+            // Full Docker command with memory, name, mount, logging
+            String dockerCommand = String.format(
+                    "docker run --rm --memory=%dM --name %s -v %s:/logs p3/task-base:1 \"bash -c 'python3 -c \\\"print(42 * 2)\\\" > /logs/task-%d.log 2>&1'\"",
+                    task.getMemMb(),
+                    containerName,
+                    new File("logs").getAbsolutePath(),
+                    task.getId()
+            );
+
+
+            Process process = new ProcessBuilder("bash", "-c", dockerCommand).start();
+
+            boolean finished = process.waitFor(task.getTimeoutSec(), TimeUnit.SECONDS);
             task.setEnded(Instant.now());
 
             if (!finished) {
-                p.destroyForcibly();
+                // Timeout → force kill the Docker container
+                new ProcessBuilder("docker", "kill", containerName).start();
                 task.setStatus(TaskStatus.FAILED_TIMEOUT);
             } else {
-                task.setExitCode(p.exitValue());
-                task.setStatus(p.exitValue() == 0 ? TaskStatus.SUCCEEDED : TaskStatus.FAILED);
+                int exitCode = process.exitValue();
+                task.setExitCode(exitCode);
+                task.setStatus(exitCode == 0 ? TaskStatus.SUCCEEDED : TaskStatus.FAILED);
             }
 
-            task.setLogPath(logFile.getAbsolutePath());
+            task.setLogPath(new File(logFilePath).getAbsolutePath());
             repo.save(task);
 
         } catch (Exception e) {
@@ -72,6 +86,7 @@ public class TaskController {
         } finally {
             mem.release(task.getMemMb());
 
+            // Try to schedule next queued tasks
             while (!queue.isEmpty()) {
                 Task next = queue.peek();
                 if (mem.tryReserve(next.getMemMb())) {
@@ -79,7 +94,9 @@ public class TaskController {
                     next.setStatus(TaskStatus.RESERVED);
                     repo.save(next);
                     pool.submit(() -> runTask(next));
-                } else break;
+                } else {
+                    break;
+                }
             }
         }
     }
