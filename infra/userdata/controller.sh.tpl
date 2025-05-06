@@ -18,5 +18,8 @@ aws s3 cp s3://${orchestrator_bucket}/orchestrator.jar /home/ubuntu/orchestrator
 docker run -d \
   --name p3-orchestrator-app \
   -p 8080:8080 \
+  -v /home/ubuntu/orchestrator.jar:/app/orchestrator.jar:ro \
+  -w /app \
   openjdk:17-jdk-slim \
-  java -jar /home/ubuntu/orchestrator.jar
+  java -jar orchestrator.jar
+
