@@ -1,11 +1,18 @@
 package com.example.p3;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +68,7 @@ public class TaskController {
 
         String containerName = "task-" + task.getId();
         String logFilePath  = logsDir + "/task-" + task.getId() + ".log";
+//        String errFilePath    = logsDir + "/task-" + task.getId() + "-error.log";
 
         // 1) pull the "user command" from the request-backed Task
         String userCmd = task.getCommand();
@@ -79,15 +87,16 @@ public class TaskController {
         // we’ll shell-interpret the user command and redirect inside the container:
 //        cmd.add("bash");
 //        cmd.add("-c");
-        cmd.add(userCmd + " > /logs/task-" + task.getId() + ".log 2>&1");
+        cmd.add(userCmd );
 
         try {
             // 3) spin it up
             ProcessBuilder pb = new ProcessBuilder(cmd)
                     // (optional) if you want to capture docker’s own stderr/stdout:
-                    .redirectErrorStream(true)
+                    .redirectErrorStream(true) // stderr → stdout
                     // (not needed if you rely wholly on in-container redirection)
-                    // .redirectOutput(new File(logFilePath))
+                    .redirectOutput(new File(logFilePath)) // stdout → outFile
+//                    .redirectError(new File(errFilePath))
                     ;
 
             Process process = pb.start();
@@ -183,8 +192,34 @@ public class TaskController {
     }
 
     @GetMapping("/logs/{id}")
-    public String getLogs(@PathVariable Long id) throws Exception {
-        Task task = repo.findById(id).orElseThrow();
-        return java.nio.file.Files.readString(new File(task.getLogPath()).toPath());
+    public ResponseEntity<String> getLogs(@PathVariable Long id) {
+        Task task = repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such task"));
+
+        String logPath = task.getLogPath();
+        if (logPath == null || logPath.isBlank()) {
+            // the task never created a log
+            return ResponseEntity
+                    .status(HttpStatus.NO_CONTENT)
+                    .body("No logs available for task " + id);
+        }
+
+        Path p = Paths.get(logPath);
+        if (!Files.exists(p)) {
+            // logPath was set but file isn’t on disk
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body("Log file not found at: " + logPath);
+        }
+
+        try {
+            String contents = Files.readString(p);
+            return ResponseEntity.ok(contents);
+        } catch (IOException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to read log file" + e.getMessage()
+            );
+        }
     }
 }
