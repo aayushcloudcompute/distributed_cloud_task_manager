@@ -64,11 +64,12 @@ public class TaskController {
 
     private void runTask(Task task) {
         String logsDir = new File("logs").getAbsolutePath();
+        System.out.println(logsDir);
         new File(logsDir).mkdirs();
 
         String containerName = "task-" + task.getId();
         String logFilePath  = logsDir + "/task-" + task.getId() + ".log";
-//        String errFilePath    = logsDir + "/task-" + task.getId() + "-error.log";
+        String errFilePath    = logsDir + "/task-" + task.getId() + "-error.log";
 
         // 1) pull the "user command" from the request-backed Task
         String userCmd = task.getCommand();
@@ -93,10 +94,10 @@ public class TaskController {
             // 3) spin it up
             ProcessBuilder pb = new ProcessBuilder(cmd)
                     // (optional) if you want to capture docker’s own stderr/stdout:
-                    .redirectErrorStream(true) // stderr → stdout
+//                    .redirectErrorStream(true) // stderr → stdout
                     // (not needed if you rely wholly on in-container redirection)
                     .redirectOutput(new File(logFilePath)) // stdout → outFile
-//                    .redirectError(new File(errFilePath))
+                    .redirectError(new File(errFilePath))
                     ;
 
             Process process = pb.start();
