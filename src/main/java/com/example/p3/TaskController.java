@@ -23,6 +23,19 @@ public class TaskController {
 
     ExecutorService pool = Executors.newCachedThreadPool();
 
+    // simple DTO to hold the incoming JSON
+    public static class NameRequest {
+        private String name;
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+    }
+
+    @GetMapping("/hello")
+    public String sayHello(@RequestBody NameRequest request)
+    {
+        return "hi "+request.getName()+"! ";
+    }
+
     @PostMapping("/submit")
     public Map<String, Object> submit(@RequestBody Task task) {
         task.setCreated(Instant.now());

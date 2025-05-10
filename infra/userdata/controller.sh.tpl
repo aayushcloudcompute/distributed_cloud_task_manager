@@ -11,6 +11,9 @@ apt-get install -y docker.io awscli openjdk-17-jre-headless
 systemctl enable docker
 systemctl start docker
 
+# allow the ubuntu user to run docker without sudo
+usermod -aG docker ubuntu
+
 # 3) Fetch your JAR from S3
 aws s3 cp s3://${orchestrator_bucket}/orchestrator.jar /home/ubuntu/orchestrator.jar
 
@@ -22,4 +25,3 @@ docker run -d \
   -w /app \
   openjdk:17-jdk-slim \
   java -jar orchestrator.jar
-
