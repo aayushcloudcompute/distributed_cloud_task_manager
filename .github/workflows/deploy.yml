@@ -39,33 +39,29 @@ jobs:
 
   deploy:
     name: SSH‐deploy to EC2
-    needs: build-and-publish
     runs-on: ubuntu-latest
+    needs: build-and-publish
     steps:
-      - name: Ensure SSH key is available
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
-
       - name: Deploy & restart container
         uses: appleboy/ssh-action@v0.1.6
         with:
           host:     ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ${{ secrets.EC2_USER }}      # on Ubuntu AMIs this is “ubuntu”
+          key:      ${{ secrets.EC2_SSH_KEY }}   # <–– your private key
           script: |
             set -eux
-            # stop old container
+            # stop & remove the old
             docker stop p3-orchestrator-app || true
             docker rm   p3-orchestrator-app || true
 
-            # pull latest base image (optional)
+            # pull the latest base image
             docker pull openjdk:17-jdk-slim
 
-            # fetch new JAR from S3
+            # grab the new JAR
             aws s3 cp s3://${{ secrets.S3_BUCKET }}/orchestrator.jar \
                          /home/${{ secrets.EC2_USER }}/orchestrator.jar
 
-            # launch new container
+            # launch the new container
             docker run -d \
               --name p3-orchestrator-app \
               -p 8080:8080 \
