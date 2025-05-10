@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ensure SSH key is available
-        uses: webfactory/ssh-agent@v0.10
+        uses: webfactory/ssh-agent@v0
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
