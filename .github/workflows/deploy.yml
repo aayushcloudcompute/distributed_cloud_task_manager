@@ -1,0 +1,75 @@
+# .github/workflows/deploy.yml
+name: CI/CD build & deploy
+
+# 1) triggers: on push to main, or manual
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    name: Build JAR & Upload to S3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build with Maven
+        run: ./mvnw clean package -DskipTests
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:           ${{ secrets.AWS_REGION }}
+
+      - name: Upload orchestrator.jar to S3
+        run: |
+          aws s3 cp target/p3-0.0.1-SNAPSHOT.jar \
+            s3://${{ secrets.S3_BUCKET }}/orchestrator.jar
+
+  deploy:
+    name: SSH‐deploy to EC2
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure SSH key is available
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy & restart container
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host:     ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          script: |
+            set -eux
+            # stop old container
+            docker stop p3-orchestrator-app || true
+            docker rm   p3-orchestrator-app || true
+
+            # pull latest base image (optional)
+            docker pull openjdk:17-jdk-slim
+
+            # fetch new JAR from S3
+            aws s3 cp s3://${{ secrets.S3_BUCKET }}/orchestrator.jar \
+                         /home/${{ secrets.EC2_USER }}/orchestrator.jar
+
+            # launch new container
+            docker run -d \
+              --name p3-orchestrator-app \
+              -p 8080:8080 \
+              -v /home/${{ secrets.EC2_USER }}/orchestrator.jar:/app/orchestrator.jar:ro \
+              -w /app \
+              openjdk:17-jdk-slim \
+              java -jar orchestrator.jar

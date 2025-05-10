@@ -34,3 +34,9 @@ build/
 
 logs/*
 
+/infra/terraform.tfstate
+/infra/.terraform.lock.hcl
+/infra/.terraform/providers/registry.terraform.io/hashicorp/aws/5.97.0/darwin_amd64/LICENSE.txt
+/terraform.tfstate
+/infra/terraform.tfstate.backup
+/infra/.terraform/providers/registry.terraform.io/hashicorp/aws/5.97.0/darwin_amd64/terraform-provider-aws_v5.97.0_x5
