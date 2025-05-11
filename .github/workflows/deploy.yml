@@ -67,6 +67,7 @@ jobs:
               -p 8080:8080 \
               -v /home/${{ secrets.EC2_USER }}/orchestrator.jar:/app/orchestrator.jar:ro \
               -v /home/ubuntu/p3-logs:/app/logs \
+              -v /var/run/docker.sock:/var/run/docker.sock \
               -w /app \
               openjdk:17-jdk-slim \
               java -jar orchestrator.jar
