@@ -33,10 +33,6 @@ jobs:
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest
 
-      - name: Set image name for later
-        run: echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest" >> $GITHUB_OUTPUT
-        id: img
-
   deploy:
     name: SSH & restart on EC2
     runs-on: ubuntu-latest
@@ -55,7 +51,7 @@ jobs:
             docker rm   p3-orchestrator-app || true
 
             # pull latest from Docker Hub
-            docker pull ${{ needs.build-and-publish.outputs.IMAGE }}
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest
 
             # run it (with Docker socket & logs volume)
             docker run -d \
