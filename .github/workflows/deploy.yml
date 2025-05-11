@@ -59,4 +59,4 @@ jobs:
               -p 8080:8080 \
               -v /var/run/docker.sock:/var/run/docker.sock \
               -v /home/ubuntu/p3-logs:/app/logs \
-              ${{ needs.build-and-publish.outputs.IMAGE }}
+              ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest
