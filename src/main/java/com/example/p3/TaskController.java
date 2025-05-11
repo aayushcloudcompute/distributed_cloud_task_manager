@@ -82,7 +82,10 @@ public class TaskController {
         cmd.add(containerName);
         cmd.add("-v");
         cmd.add(logsDir + ":/logs");
-        cmd.add("p3/task-base:1");
+
+        String baseImage = System.getenv()
+                .getOrDefault("P3_TASK_BASE_IMAGE", "p3/task-base:1");
+        cmd.add(baseImage);
         // we’ll shell-interpret the user command and redirect inside the container:
 //        cmd.add("bash");
 //        cmd.add("-c");

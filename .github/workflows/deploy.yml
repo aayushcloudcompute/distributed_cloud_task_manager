@@ -33,6 +33,14 @@ jobs:
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest
 
+      - name: Build & push p3-task-base image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./task-base   # wherever your Dockerfile for p3/task-base lives
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/p3-task-base:1
+
   deploy:
     name: SSH & restart on EC2
     runs-on: ubuntu-latest
@@ -50,6 +58,9 @@ jobs:
             docker stop p3-orchestrator-app || true
             docker rm   p3-orchestrator-app || true
 
+            # pull the newest task-base image
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/p3-task-base:1
+            
             # pull latest from Docker Hub
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest
 
@@ -59,4 +70,5 @@ jobs:
               -p 8080:8080 \
               -v /var/run/docker.sock:/var/run/docker.sock \
               -v /home/ubuntu/p3-logs:/app/logs \
+              -e P3_TASK_BASE_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/p3-task-base:1 \
               ${{ secrets.DOCKERHUB_USERNAME }}/p3-orchestrator:latest
