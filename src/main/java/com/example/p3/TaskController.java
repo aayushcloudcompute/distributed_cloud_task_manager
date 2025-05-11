@@ -186,6 +186,10 @@ public class TaskController {
             repo.save(task);
 
         } catch (Exception e) {
+
+            System.out.println("----------------ERROR----------------");
+            e.printStackTrace(System.out);
+            System.out.println("----------------AAYUSH----------------");
             System.out.println(e.getMessage());
             task.setStatus(TaskStatus.FAILED);
             repo.save(task);
