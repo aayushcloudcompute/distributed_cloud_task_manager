@@ -67,7 +67,7 @@ public class TaskController {
 
         String containerName = "task-" + task.getId();
         String logFilePath  = logsDir + "/task-" + task.getId() + ".log";
-        String errFilePath    = logsDir + "/task-" + task.getId() + "-error.log";
+//        String errFilePath    = logsDir + "/task-" + task.getId() + "-error.log";
 
         // 1) pull the "user command" from the request-backed Task
         String userCmd = task.getCommand();
@@ -88,40 +88,19 @@ public class TaskController {
 //        cmd.add("-c");
         cmd.add(userCmd );
 
-
+        try {
             // 3) spin it up
             ProcessBuilder pb = new ProcessBuilder(cmd)
                     // (optional) if you want to capture docker’s own stderr/stdout:
                     .redirectErrorStream(true) // stderr → stdout
                     // (not needed if you rely wholly on in-container redirection)
-//                    .redirectOutput(new File(logFilePath)) // stdout → outFile
+                    .redirectOutput(new File(logFilePath)) // stdout → outFile
 //                    .redirectError(new File(errFilePath))
                     ;
 
-        try {
-            System.out.println(String.format("Launching task %d: %s", task.getId(), String.join(" ", cmd)));
-            Process proc = pb.start();
+            Process process = pb.start();
 
-            // spin off a thread to read & log each line of output
-            new Thread(() -> {
-                try (BufferedReader r = new BufferedReader(
-                        new InputStreamReader(proc.getInputStream()))) {
-                    String line;
-                    while ((line = r.readLine()) != null) {
-                        System.out.println(String.format("task-%d ▶ %s", task.getId(), line));
-                    }
-                } catch (IOException e) {
-                    System.out.println(String.format("Error reading output for task %d: %s", task.getId(), e.getMessage()));
-                }
-            }, "task-"+task.getId()+"-logger").start();
-
-            boolean finished = proc.waitFor(task.getTimeoutSec(), TimeUnit.SECONDS);
-            int exit = finished ? proc.exitValue() : -1;
-            System.out.println(String.format("task-%d exited with code=%d (finished=%b)", task.getId(), exit, finished));
-
-
-
-
+            boolean finished = process.waitFor(task.getTimeoutSec(), TimeUnit.SECONDS);
             task.setEnded(Instant.now());
 
             if (!finished) {
@@ -129,7 +108,7 @@ public class TaskController {
                 new ProcessBuilder("docker", "kill", containerName).start();
                 task.setStatus(TaskStatus.FAILED_TIMEOUT);
             } else {
-                int exitCode = proc.exitValue();
+                int exitCode = process.exitValue();
                 task.setExitCode(exitCode);
                 task.setStatus(exitCode == 0
                         ? TaskStatus.SUCCEEDED
@@ -187,10 +166,13 @@ public class TaskController {
 
         } catch (Exception e) {
 
-            System.out.println("----------------ERROR----------------");
-            e.printStackTrace(System.out);
-            System.out.println("----------------AAYUSH----------------");
-            System.out.println(e.getMessage());
+            try (PrintWriter pw = new PrintWriter(logFilePath)) {
+                e.printStackTrace(pw);
+                pw.println(e.getMessage());
+            } catch (IOException secondary) {
+                secondary.printStackTrace(System.err); // at least you see this on stdout
+                System.err.println(secondary.getMessage());
+            }
             task.setStatus(TaskStatus.FAILED);
             repo.save(task);
         } finally {
