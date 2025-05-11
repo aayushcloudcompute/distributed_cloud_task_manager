@@ -62,11 +62,11 @@ public class TaskController {
 
     private void runTask(Task task) {
         String logsDir = new File("logs").getAbsolutePath();
-        System.out.println(logsDir);
         new File(logsDir).mkdirs();
 
         String containerName = "task-" + task.getId();
         String logFilePath  = logsDir + "/task-" + task.getId() + ".log";
+        task.setLogPath(logFilePath);
 //        String errFilePath    = logsDir + "/task-" + task.getId() + "-error.log";
 
         // 1) pull the "user command" from the request-backed Task
@@ -161,21 +161,18 @@ public class TaskController {
 //            new ProcessBuilder("docker", "rm", containerName).start()
 //                    .waitFor();
 
-            task.setLogPath(logFilePath);
-            repo.save(task);
+
 
         } catch (Exception e) {
 
             try (PrintWriter pw = new PrintWriter(logFilePath)) {
                 e.printStackTrace(pw);
-                pw.println(e.getMessage());
             } catch (IOException secondary) {
                 secondary.printStackTrace(System.err); // at least you see this on stdout
-                System.err.println(secondary.getMessage());
             }
             task.setStatus(TaskStatus.FAILED);
-            repo.save(task);
         } finally {
+            repo.save(task);
             mem.release(task.getMemMb());
 
             // Try to schedule next queued tasks
