@@ -15,9 +15,3 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
-
-variable "orchestrator_bucket" {
-  description = "Name of the S3 bucket containing orchestrator.jar"
-  type        = string
-  default     = "p3-testing-bucket"
-}

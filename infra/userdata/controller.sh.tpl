@@ -14,14 +14,7 @@ systemctl start docker
 # allow the ubuntu user to run docker without sudo
 usermod -aG docker ubuntu
 
-# 3) Fetch your JAR from S3
-aws s3 cp s3://${orchestrator_bucket}/orchestrator.jar /home/ubuntu/orchestrator.jar
-
-# 4) Launch your app
-docker run -d \
-  --name p3-orchestrator-app \
-  -p 8080:8080 \
-  -v /home/ubuntu/orchestrator.jar:/app/orchestrator.jar:ro \
-  -w /app \
-  openjdk:17-jdk-slim \
-  java -jar orchestrator.jar
+# ensure the logs dir exists and is writable
+mkdir -p /home/ubuntu/p3-logs
+chown ubuntu:ubuntu /home/ubuntu/p3-logs
+chmod 755 /home/ubuntu/p3-logs

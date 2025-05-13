@@ -95,7 +95,7 @@ resource "aws_instance" "controller" {
   # on-boot script:
   user_data = templatefile(
     "${path.module}/userdata/controller.sh.tpl",
-    { orchestrator_bucket = var.orchestrator_bucket }
+    { }
   )
 
   iam_instance_profile = aws_iam_instance_profile.controller.name
